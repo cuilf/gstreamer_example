@@ -1,0 +1,51 @@
+Q:
+The test.mp4 file will be created, but it never records anything/file size never changes. 
+I had this issue when I was initially testing the command line pipeline, I discovered 
+I needed to add the -e (end of stream) flag.
+
+Any help or clarification would be greatly appreciated. Thanks!
+
+
+A:
+In case of MP4 file writing you cannot just simply stop the pipeline. Important parts for the MP4 file 
+will not be written if you do so. This makes the file unplayable.
+
+Instead you need to "inject" an end of stream signal to the pipeline and wait until this signal is 
+reported back on the pipeline's bus.
+//反而需要“注入“ 一个流结束信号给管段并且等待直到这个信号被返回报道到管道的总线上。
+
+See http://gstreamer.freedesktop.org/data/doc/gstreamer/head/manual/html/chapter-bus.html for a start.
+
+This is what the "-e" option is doing for gst-launch-1.0.
+
+That the file size is not increasing is concerning though. It should write to the file nonetheless.
+
+Q:
+Thank you very much for response greatly appreciated. I am now curious as well as to why it is not 
+recording anything. I tested the command line pipeline without the -e option and it still recorded, 
+however the resulting file would not display anything in VLC. I had looked at the gstreamer bus 
+several times, however most of the tutorials and examples I saw were merely showing how to handle various messages 
+from the pipeline. I did find gst_event_new_eos() in the docs, so I will try to figure out how to 'inject' it now.
+ Any ideas on why the file size is not changing even without EOS handling?)
+
+
+A:
+Some hints, but be aware I feel home in the C camp and don'nt know much about python - 
+so I hope you can translate for your needs. Check gst-parse-launch() fir easier pipeline generation.
+It will almost look like the command line for gst-launch-1.0 then. This will bring down your code lines a lot.
+gst_element_send_event(pipeline, gst_event_new_eos()) is for sending the EOS to the pipeline. 
+I highly suggest you check for error codes when you build the pipeline. 
+There might be something wrong and you will most likely find it that way.)
+
+A:
+Of course the bus handler will help here as well if there is an error after you started the pipeline.)
+
+A:
+Is there a stray 'r' before file location string?)
+
+Q:
+Okay, thanks for the hints. I will add the bus and check for error messages.
+ The r before the file location string means 'raw' so python encodes it exactly 
+ as it is written as Unicode, if there is no r then you have to put double backslashes, 
+ etc so the interpreter doesn't try to encode Unicode escapes, etc.
+  Thanks again for the all the help! Greatly appreciated. Will test today and see what I can find out.)

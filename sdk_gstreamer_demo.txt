@@ -1,0 +1,430 @@
+sdk address :http://processors.wiki.ti.com/index.php?title=Processor_SDK_Linux_Automotive_Software_Developers_Guide
+
+1.Running multimedia with Wayland sink 
+
+  target # gst-launch-1.0 playbin uri=file://<path-to-file-name> video-sink=waylandsink
+
+2.One can run an audio video file using the gstreamer playbin from the console. Currently, 
+the supported Audio/video sink is kmssink, waylandsink and alsassink. 
+
+  kmssink:
+  target #  gst-launch-1.0 playbin uri=file:///<path_to_file> video-sink=kmssink audio-sink=alsasink
+  target #  gst-launch-1.0 uridecodebin uri=file:///media/video/444.264 ! h264parse ! qtmux ! filesink location=444.mp4
+
+3.use vpe for scaling and color space conversion. 
+  1.decode->scale->display
+  target # gst-launch-1.0 -v filesrc location=example_h264.mp4 ! qtdemux ! h264parse ! \
+  ducatih264dec ! vpe ! 'video/x-raw, format=(string)NV12, width=(int)720, height=(int)480' ! kmssink
+  2.color space conversion
+  target # gst-launch-1.0 -v videotestsrc ! 'video/x-raw, format=(string)YUY2, width= \
+  (int)1280, height=(int)720' ! vpe ! 'video/x-raw, format=(string)NV12, width=(int)720, height=(int)480' \
+  ! kmssink
+
+4.
+1.Capture and Display Fullscreen
+  target #  gst-launch-1.0 v4l2src device=/dev/video1 num-buffers=1000 io-mode=4 ! 'video/x-raw, format=(string)YUY2, width=(int)1280, height=(int)720' ! vpe num-input-buffers=8 ! queue ! kmssink
+  2.used for NV12 capture-display usecase.
+  target # gst-launch-1.0 v4l2src device=/dev/video1 num-buffers=1000 io-mode=4 ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720' ! kmssink
+  target # gst-launch-1.0 v4l2src device=/dev/video1 num-buffers=1000 io-mode=5 ! 'video/x-raw, \
+  format=(string)NV12, width=(int)1280, height=(int)720' ! kmssink
+
+
+5.Capture and Display to a window in wayland
+  target #  gst-launch-1.0 v4l2src device=/dev/video1 num-buffers=1000 io-mode=4 ! 'video/x-raw, format=(string)YUY2, width=(int)1280, height=(int)720' ! vpe num-input-buffers=8 ! queue ! waylandsink
+
+6.Capture and Encode into a MP4 file.
+  target # gst-launch-1.0 -e v4l2src device=/dev/video1 num-buffers=1000 io-mode=5 ! 'video/x-raw, \
+  format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! ducatimpeg4enc bitrate=4000 ! \
+  queue ! mpeg4videoparse ! qtmux ! filesink location=x.mp4
+
+7.Capture and Encode and Display in parallel.
+  target #  gst-launch-1.0 -e v4l2src device=/dev/video1 num-buffers=1000 io-mode=4 ! 'video/x-raw, \
+  format=(string)YUY2, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! vpe num-input-buffers=8 ! tee name=t  ! \
+  queue ! ducatimpeg4enc bitrate=4000 ! queue ! mpeg4videoparse ! qtmux ! filesink location=x.mp4 t. ! queue ! kmssink
+
+    v4l2src -> filter ->vpe -> ducatimpeg4enc -> mpeg4videoparse -> qtmux ->filesink
+                         |---> kmssink
+
+
+https://gstreamer.freedesktop.org/media/gst-integration-testsuite/defaults/webm/vorbis_vp8.0.webm
+
+
+test
+gst-launch-1.0 -e v4l2src device=/dev/video0 num-buffers=1000 io-mode=4 ! 'video/x-raw, format=(string)YUY2, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! vpe num-input-buffers=8 ! tee name=t  ! queue ! ducatimpeg4enc bitrate=4000 ! queue ! mpeg4videoparse ! qtmux ! filesink location=x.mp4 t. ! queue ! ximagesink
+
+
+//ok
+1.gst-launch-1.0 v4l2src device=/dev/video0 ! video/x-raw, format=RGB,width=320,height=240,framerate=30/1 ! videoconvert ! ximagesink 
+
+2.gstreamer
+
+
+3.luzhi
+gst-launch-1.0 --eos-on-shutdown v4l2src device=/dev/video0 ! avmux_mp4 ! filesink location=video.mp4
+
+4.bofang
+gst-launch-1.0 playbin uri=file:///home/cuilf/video.mp4 video-sink=ximagesink
+
+
+
+j6  test 
+1.
+
+
+gst-launch-1.0 -e videotestsrc ! videoconvert ! ducatih264enc ! h264parse ! avimux ! filesink location=test02.avi  
+
+
+
+
+
+//mpeg4 encode 
+
+gst-launch-1.0 -e videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! ducatimpeg4enc bitrate=4000 ! queue ! mpeg4videoparse ! qtmux ! filesink location=x1.mp4
+
+//h264encode 
+gst-launch-1.0 -e videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=$1.mp4
+
+gst-launch-1.0 -e videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=$1.mp4 videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=$2.mp4
+
+gst-launch-1.0 -e videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=$1.mp4 videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=$2.mp4 videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=$3.mp4
+
+
+gst-launch-1.0 -e videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=$1.mp4 \
+videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=$2.mp4 \
+videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=$3.mp4 \
+videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=$4.mp4
+
+//vpe scale 
+gst-launch-1.0 -e videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! vpe ! 'video/x-raw, format=(string)NV12, width=(int)2560, height=(int)1440, framerate=(fraction)30/1'  ! ducatih264enc  ! queue ! h264parse ! qtmux ! filesink location=$1.mp4
+
+//generate h264 file
+#!/bin/sh
+gst-launch-1.0 -e videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! ducatih264enc ! filesink location=$1.264
+//h264 fiel to MP4 file 
+gst-launch-1.0 filesrc location="/media/video/444.264" ! h264parse ! qtmux ! filesink location=444.mp4
+
+
+
+
+gst-launch-0.10 filesrc location="/test.mp4" ! qtdemux name=qtdemuxer  qtdemuxer. ! queue ! ffdec_h264! textoverlay deltax= 20 deltay= 20 font-desc="Sans Bold 8" text="wuwnjie.tk" halign = "left" shaded-background = "TRUE" valign="top" wrap-mode="char" xpad = "20" ypad = "20" ! autovideosink qtdemuxer. ! queue ! ffdec_aac ! autoaudiosink
+
+
+
+gst-launch-1.0 filesrc location="111.mp4" ! qtdemux ! queue ! avdec_h264 ! textoverlay deltax= 20 deltay= 20 font-desc="Sans Bold 8" text="wuwnjie.tk" halignment = "left"  valignment="top" wrap-mode="char" xpad = "20" ypad = "20" ! autovideosink
+
+textoverlay 
+gst-launch-1.0 -e videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! textoverlay text="INVO" halignment="left"  valignment="top" xpad ="20" ypad ="20" deltax=20 deltay=20  wrap-mode="char" font-desc="Sans Bold 8" ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=$1.mp4
+
+pic in video
+gst-launch-1.0 filesrc location=sample.mp4 ! decodebin2 ! videomixer name=mix ! xvimagesink filesrc location=watermark.png ! pngdec ! imagefreeze ! ffmpegcolorspace ! mix.
+
+
+
+
+
+ubuntu test ok
+
+1.textoverlay
+gst-launch-1.0 videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! textoverlay text="INVO" halignment="left" valignment="top" xpad ="20" ypad ="20" deltax=20 deltay=20  wrap-mode="char" font-desc="Sans Bold 8" ! videoconvert ! autovideosink
+
+
+gst-launch-1.0 videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! textoverlay text="???aINVO" halignment="left" valignment="top" font-desc="Sans Bold 8"  ! videoconvert ! autovideosink
+
+
+
+2.picture in picture
+2.1 1 video in another video
+gst-launch-1.0 videotestsrc pattern=18 ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! videomixer name=mix ! videoconvert ! autovideosink videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)640, height=(int)360, framerate=(fraction)30/1' ! mix.
+
+2.2 2 video in another video 
+gst-launch-1.0 videotestsrc pattern="snow" ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! videomixer name=mix sink_1::xpos=20 sink_1::ypos=20 sink_1::alpha=0.5 sink_1::zorder=3 sink_2::xpos=100 sink_2::ypos=100 sink_2::zorder=2 ! videoconvert ! autovideosink videotestsrc pattern=13 ! 'video/x-raw, format=(string)NV12, width=(int)200, height=(int)150' ! mix. videotestsrc ! 'video/x-raw, width=(int)640, height=(int)360' ! mix.
+
+use sink_num done
+
+gst-launch-1.0 videomixer name=mix sink_1::xpos=20 sink_1::ypos=20 sink_1::alpha=0.5 sink_1::zorder=3 sink_2::xpos=100 sink_2::ypos=100 sink_2::zorder=2 ! videoconvert ! autovideosink  \
+videotestsrc pattern="snow" ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! mix.sink_0 \
+videotestsrc pattern=13 ! 'video/x-raw, format=(string)NV12, width=(int)200, height=(int)150' ! mix.sink_1 \
+videotestsrc ! 'video/x-raw, width=(int)640, height=(int)360' ! mix.sink_2
+
+
+3 video wall 
+
+gst-launch-1.0 -e videomixer name=mix ! videoconvert ! autovideosink \
+videotestsrc pattern="black" ! 'video/x-raw, format=(string)YUYV, width=(int)1280, height=(int)720' ! mix. \
+videotestsrc pattern=1 !  'video/x-raw, format=(string)YUYV, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=0 left=0 ! mix. \
+videotestsrc pattern=13 !  'video/x-raw, format=(string)YUYV, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=0 left=-640 ! mix. \
+videotestsrc pattern=15 !  'video/x-raw, format=(string)YUYV, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=-360 left=0 ! mix. \
+videotestsrc pattern=18 !  'video/x-raw, format=(string)YUYV, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=-360 left=-640 ! mix.
+
+
+
+gst-launch-1.0 -e videomixer name=mix ! videoconvert ! autovideosink \
+videotestsrc pattern=3 ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720' ! mix. \
+videotestsrc pattern=15 !  'video/x-raw, format=(string)YUYV, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=-360 left=-640 ! mix. \
+videotestsrc pattern=1 !  'video/x-raw, format=(string)YUYV, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=-360 left=0 ! mix. \
+videotestsrc pattern=13 !  'video/x-raw, format=(string)YUYV, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=0 left=-640 ! mix. \
+videotestsrc pattern=15 ! 'video/x-raw, format=(string)YUYV, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=0 left=0 ! mix. 
+
+4 timeoverlay + text
+gst-launch-1.0 -e videomixer name=mix ! timeoverlay halignment=right valignment=bottom text="Time:" ! videoconvert ! autovideosink \
+videotestsrc pattern=10 ! 'video/x-raw, format=(string)YUY2, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM4" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=-360 left=-640 ! mix. \
+videotestsrc pattern=19 ! 'video/x-raw, format=(string)YUY2, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM3" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=-360 left=0 ! mix. \
+videotestsrc pattern=15 ! 'video/x-raw, format=(string)YUY2, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM2" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=0 left=-640 ! mix. \
+videotestsrc pattern=1  ! 'video/x-raw, format=(string)YUY2, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM1" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=0 left=0 ! mix. 
+
+
+gst-launch-1.0 -e videomixer name=mix ! timeoverlay halignment=right valignment=bottom ! clockoverlay halignment=left valignment=bottom time-format="%Y/%m/%d %H:%M:%S" ! videoconvert ! autovideosink \
+videotestsrc pattern=10 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM4" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=-360 left=-640 ! mix. \
+videotestsrc pattern=19 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM3" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=-360 left=0 ! mix. \
+videotestsrc pattern=15 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM2" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=0 left=-640 ! mix. \
+videotestsrc pattern=1  ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM1" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=0 left=0 ! mix.
+
+5.picture in  video
+gst-launch-1.0 -e  videomixer name=mix ! videoconvert ! autovideosink \
+videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720' ! mix. \
+filesrc location="INVO.png" ! pngdec ! imagefreeze ! 'video/x-raw, width=(int)287, height=(int)72' ! videobox border-alpha=0 top=-100 left=-100 ! mix.
+
+gst-launch-1.0 -e videomixer name=mix sink_1::xpos=200 sink_1::ypos=200  ! videoconvert ! autovideosink \
+videotestsrc pattern=3 ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720' ! mix. \
+filesrc location="INVO.png" ! pngdec ! imagefreeze ! 'video/x-raw, width=(int)287, height=(int)72'  ! mix.sink_1
+ 
+6.time+text=pic6+videowall
+
+gst-launch-1.0 -e videomixer name=mix sink_5::xpos=500 sink_5::ypos=400  ! clockoverlay halignment=right valignment=top font-desc="Sans Bold 8" time-format="%Y/%m/%d %H:%M:%S" ! videoconvert ! autovideosink \
+videotestsrc pattern=0 ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720' ! mix. \
+videotestsrc pattern=1 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM4" font-desc="Sans Bold 16"  shaded-background=true ! videobox border-alpha=0 top=-360 left=-640 ! mix. \
+videotestsrc pattern=15  ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM3" font-desc="Sans Bold 16"  shaded-background=false ! videobox border-alpha=0 top=-360 left=0 ! mix. \
+videotestsrc pattern=19 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM2" font-desc="Sans Bold 16"  shaded-background=true ! videobox border-alpha=0 top=0 left=-640 ! mix. \
+videotestsrc pattern=10  ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM1" font-desc="Sans Bold 16"  shaded-background=true ! videobox border-alpha=0 top=0 left=0 ! mix. \
+filesrc location="INVO.png" ! pngdec ! imagefreeze ! 'video/x-raw, width=(int)287, height=(int)72' ! mix.sink_5
+
+7.time+text+pic6+videowall+1080p
+
+gst-launch-1.0 -e videomixer name=mix sink_5::xpos=200 sink_5::ypos=200  ! timeoverlay halignment=right valignment=bottom ! clockoverlay halignment=left valignment=bottom time-format="%Y/%m/%d %H:%M:%S" ! videoconvert ! autovideosink \
+videotestsrc pattern=0 ! 'video/x-raw, format=(string)NV12, width=(int)1920, height=(int)1080' ! mix. \
+videotestsrc pattern=10 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM4" font-desc="Sans Bold 16"  shaded-background=true ! videobox border-alpha=0 top=-360 left=-640 ! mix. \
+videotestsrc pattern=19 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM3" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=-360 left=0 ! mix. \
+videotestsrc pattern=15 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM2" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=0 left=-640 ! mix. \
+videotestsrc pattern=1  ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM1" font-desc="Sans Bold 16"  shaded-background=true ! videobox border-alpha=0 top=0 left=0 ! mix. \
+filesrc location="INVO.png" ! pngdec ! imagefreeze ! 'video/x-raw, width=(int)287, height=(int)72' ! mix.sink_5
+
+gst-launch-1.0 -e videomixer name=mix sink_5::xpos=200 sink_5::ypos=200  ! timeoverlay halignment=right valignment=bottom ! clockoverlay halignment=left valignment=bottom time-format="%Y/%m/%d %H:%M:%S" ! videoconvert ! autovideosink \
+videotestsrc pattern=0 ! 'video/x-raw, format=(string)NV12, width=(int)1920, height=(int)1080' ! mix. \
+videotestsrc pattern=10 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM4" font-desc="Sans Bold 16"  shaded-background=true ! videobox border-alpha=0 top=-360 left=-640 ! mix. \
+videotestsrc pattern=19 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM3" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=-360 left=0 ! mix. \
+videotestsrc pattern=15 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM2" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=0 left=-640 ! mix. \
+videotestsrc pattern=1  ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM1" font-desc="Sans Bold 16"  shaded-background=true ! videobox border-alpha=0 top=0 left=0 ! mix. \
+filesrc location="INVO.jpg" ! jpegdec ! imagefreeze ! 'video/x-raw, width=(int)287, height=(int)72' ! mix.sink_5
+
+
+8.RTP transfer
+ok
+++++++++++++++++++++++++++rtp x264+++++++++++++++++++++
+gst-launch-1.0 v4l2src device=/dev/video0 norm=255 ! videoconvert ! 'video/x-raw,width=640,height=480' ! autovideoconvert ! x264enc  tune="zerolatency" threads=1  ! rtph264pay config-interval=2  ! udpsink host=127.0.0.1 port=12345
+
+gst-launch-1.0 udpsrc port=5000 ! application/x-rtp, payload=96  ! rtpjitterbuffer ! rtph264depay ! h264parse ! avdec_h264 ! xvimagesink 
+++++++++++++++++++++++++++rtp x264+++++++++++++++++++++
+
+
+
+###############################################################
+
+send:
+
+gst-launch -v  gstrtpbin name=rtpbin latency=100  \
+uridecodebinuri=file:///home/miia/test.avi name=decoder \
+
+decoder. ! tee name=tee0  \
+  tee0. ! queue2 ! ffmpegcolorspace ! videoscale ! autovideosink  \
+  tee0. ! queue2 ! ffmpegcolorspace ! x264enc ! rtph264pay pt=96 ! queue2 ! rtpbin.send_rtp_sink_0  \
+rtpbin.send_rtp_src_0 ! queue2 ! udpsink host=192.168.0.109 port=5000 async=false  \
+rtpbin.send_rtcp_src_0 ! queue2 !udpsink host=192.168.0.109 port=5001 async=false  
+udpsrc port=5005 ! queue2 ! rtpbin.recv_rtcp_sink_0 \
+decoder. ! tee name=tee1  \
+  tee1. ! queue2 ! audioconvert !autoaudiosink  \
+  tee1. ! queue2!  audioconvert ! faac ! rtpmp4apay pt=96 ! queue2 !rtpbin.send_rtp_sink_1  \
+rtpbin.send_rtp_src_1 ! queue2 ! udpsink host=192.168.0.109 port=5002  async=false \
+rtpbin.send_rtcp_src_1 ! queue2 !udpsink host=192.168.0.109 port=5003 async=false \
+udpsrc port=5007 ! queue2 !rtpbin.recv_rtcp_sink_1
+
+uridecodebinuri -> tee0 -> queue2 -> ffmepgcolorspace -> videoscale -> autovideosiank 
+            -> queue2 -> ffmepgcolorspace -> x264enc -> rtph264pay -> queue2 -> rtbin.send_rtp_sink_0 -> rtpbin.send_rtp_src_0 -> queue -> udpsink 
+                                                          -> rtpbin.send_rtcp_src_0 -> queue -> udpsink
+                                            udpsrc -> queue2 -> rtpbin.recv_rtcp.sink0
+uridecodebinuri-> tee1 -> queue -> audioconvert -> autoaudiosink 
+          tee1 -> queue -> audioconvert -> faac -> rtpmp4apay -> queue -> rtpbin.send_rtp_sink_1 -> rtpbin.send_rtp_src_1 -> queue -> udpsink
+                                                       -> rtpbin.send_rtcp_src_1 -> queue -> udpsink 
+                                        udpsrc -> queue2 -> rtpbin.recv_rtcp.sink1
+
+gst-launch-1.0 rtpbin name=rtpbin latency=100  \
+v4l2src device=/dev/video0 norm=255 ! videoconvert ! 'video/x-raw,width=640,height=480' ! autovideoconvert ! x264enc tune="zerolatency" threads=1 ! rtph264pay config-interval=2 ! rtpbin.send_rtp_sink_0 \
+rtpbin.send_rtp_src_0 ! udpsink host=127.0.0.1 port=5000 \
+rtpbin.send_rtcp_src_0 ! udpsink host=127.0.0.1 port=5001 \
+udpsrc port=5005 ! rtpbin.recv_rtcp_sink_0 
+
+
+recv:
+
+gst-launch -v gstrtpbin name=rtpbin latency=100      \
+
+udpsrc caps="application/x-rtp, media=(string)video,clock-rate=(int)90000, encoding-name=(string)H264, ssrc=(uint)340005641,payload=(int)96, clock-base=(uint)2625017333, seqnum-base=(uint)5894" port=5000 ! queue ! rtpbin.recv_rtp_sink_0 \
+rtpbin. ! rtph264depay ! tee name=teevideo \
+teevideo. ! queue ! ffdec_h264 ! videoscale ! autovideosink  \
+udpsrc port=5001 ! queue !rtpbin.recv_rtcp_sink_0    \
+rtpbin.send_rtcp_src_0 ! queue ! udpsink port=5005  sync=true async=false \
+teevideo. ! queue !"video/x-h264,width=320,height=240,framerate=(fraction)25/1" ! matroskamux name=mux mux. ! filesink location="test_copy.avi" \
+
+udpsrc caps="application/x-rtp, media=(string)audio, clock-rate=(int)44100,encoding-name=(string)MP4A-LATM, cpresent=(string)0, config=(string)40002420,ssrc=(uint)4204015526, payload=(int)96, clock-base=(uint)4274968681,seqnum-base=(uint)44386" port=6002 ! queue ! rtpbin.recv_rtp_sink_1  \
+rtpbin. ! rtpmp4adepay ! tee name=teeaudioteeaudio. ! queue ! faad ! audioconvert ! autoaudiosink  
+teeaudio. ! queue ! faad ! audioconvert !faac ! mux.  
+udpsrc port=6003 ! queue! rtpbin.recv_rtcp_sink_1     
+rtpbin.send_rtcp_src_1 ! queue ! udpsink port=6007 sync=true async=false
+
+          
+udpsrc -> queue -> rtpbin.recv_rtp_sink_0
+              rtpbin -> rtph264depay ->teevideo -> queue -> ffdec_h264 -> videoscale -> autovideosink 
+                                -> queue -> filter -> matroskamux -> filesink 
+udpsrc -> queue -> rtpbin.recv_rtcp_sink_0
+              rtpbin.send_rtcp_src_0 -> queue -> udpsink
+
+
+gst-launch-1.0 rtpbin name=rtpbin latency=100  \
+udpsrc port=5000 ! application/x-rtp, payload=96  ! rtpjitterbuffer ! rtpbin.recv_rtp_sink_0 \
+udpsrc port=5001 ! rtpbin.recv_rtcp_sink_0 \
+rtpbin ! rtph264depay ! h264parse ! avdec_h264 ! xvimagesink \
+rtpbin.send_rtcp_src_0 ! udpsink port=5005
+
+gst-launch-1.0 rtpbin name=rtpbin latency=100  \
+udpsrc port=5000  ! rtpbin.recv_rtp_sink_0 \
+rtpbin ! rtph264depay ! h264parse ! avdec_h264 ! xvimagesink \
+rtpbin.send_rtcp_src_0 ! udpsink port=5005
+
+######################################################################
+
+======================rtph265==========================
+gst-launch-1.0 v4l2src device=/dev/video0 norm=255 ! videoconvert ! 'video/x-raw,width=320,height=240,framerate=(fraction)15'  ! autovideoconvert ! x265enc  ! rtph265pay ! udpsink host=127.0.0.1 port=12345
+gst-launch-1.0 v4l2src device=/dev/video1 norm=255 ! videoconvert ! 'video/x-raw,width=320,height=240,framerate=(fraction)15'  ! autovideoconvert ! x265enc tune="zerolatency"  option-string="bitrate=64"  ! rtph265pay ! udpsink host=127.0.0.1 port=12345
+gst-launch-1.0 udpsrc port=12345  ! application/x-rtp,payload=96 ! rtph265depay ! video/x-h265 ! h265parse ! avdec_h265  ! xvimagesink
+gst-launch-1.0 udpsrc uri=127.0.0.1:12345  ! application/x-rtp,payload=96 ! rtph265depay ! video/x-h265 ! h265parse ! avdec_h265  ! autovideosink
+======================rtph265==========================
+
+j6 test
+1.
+gst-launch-1.0 -e videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! textoverlay text="INVO.Beijing" halignment="left" valignment="top" font-desc="Sans Bold 8"  ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=$1.mp4 
+gst-launch-1.0 -e videotestsrc ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! textoverlay text="INVO.Beijing" halignment="left" valignment="top" font-desc="Sans Bold 8"  ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! tee
+
+
+2.gst-launch-1.0 -e videomixer name=mix sink_1::xpos=20 sink_1::ypos=20 sink_1::alpha=0.5 sink_1::zorder=3 sink_2::xpos=100 sink_2::ypos=100 sink_2::zorder=2 ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=ppp.mp4  \
+videotestsrc pattern="snow" ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! mix.sink_0 \
+videotestsrc pattern=13 ! 'video/x-raw, format=(string)NV12, width=(int)200, height=(int)150' ! mix.sink_1 videotestsrc ! 'video/x-raw, width=(int)640, height=(int)360' ! mix.sink_2
+
+
+
+3.videowall
+
+gst-launch-1.0 -e videomixer name=mix ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=videowall4.mp4 \
+videotestsrc pattern=10 !  'video/x-raw, format=(string)YVYU, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=-360 left=-640 ! mix. \
+videotestsrc pattern=19 !  'video/x-raw, format=(string)YVYU, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=-360 left=0 ! mix. \
+videotestsrc pattern=13 !  'video/x-raw, format=(string)YVYU, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=0 left=-640 ! mix. \
+videotestsrc pattern=1  ! 'video/x-raw, format=(string)YVYU, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=0 left=0 ! mix. \
+videotestsrc pattern=0  ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720' ! mix. 
+
+
+
+
+
+
+4.
+textvideowall 
+gst-launch-1.0 -e videomixer name=mix ! textoverlay halignment=left valignment=top text="INVO.Beijing" font-desc="Sans Bold 8" shaded-background=true ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=textvideowall.mp4  \
+videotestsrc pattern=10 !  'video/x-raw, format=(string)YVYU, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=-360 left=-640 ! mix. \
+videotestsrc pattern=19 !  'video/x-raw, format=(string)YVYU, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=-360 left=0 ! mix. \
+videotestsrc pattern=13 !  'video/x-raw, format=(string)YVYU, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=0 left=-640 ! mix. \
+videotestsrc pattern=1  ! 'video/x-raw, format=(string)YVYU, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=0 left=0 ! mix. \
+videotestsrc pattern=0  ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720' ! mix. 
+
+
+timevideowall 
+gst-launch-1.0 -e videomixer name=mix ! timeoverlay halignment=left valignment=bottom text="Time:" shaded-background=true ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=timevideowall.mp4 \
+videotestsrc pattern=10 !  'video/x-raw, format=(string)YVYU, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=-360 left=-640 ! mix. \
+videotestsrc pattern=19 !  'video/x-raw, format=(string)YVYU, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=-360 left=0 ! mix. \
+videotestsrc pattern=13 !  'video/x-raw, format=(string)YVYU, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=0 left=-640 ! mix. \
+videotestsrc pattern=1  ! 'video/x-raw, format=(string)YVYU, width=(int)640, height=(int)360' ! videobox border-alpha=0 top=0 left=0 ! mix. \
+videotestsrc pattern=0  ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720' ! mix. 
+ 
+
+ time+textvideowall
+gst-launch-1.0 -e videomixer name=mix ! timeoverlay halignment=right valignment=bottom ! clockoverlay halignment=left valignment=bottom time-format="%Y/%m/%d %H:%M:%S" ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=texttimevideowall2.mp4 \
+videotestsrc pattern=10 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM4" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=-360 left=-640 ! mix. \
+videotestsrc pattern=19 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM3" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=-360 left=0 ! mix. \
+videotestsrc pattern=15 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM2" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=0 left=-640 ! mix. \
+videotestsrc pattern=1 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM1" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=0 left=0 ! mix. \
+videotestsrc pattern=0 ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720' ! mix. 
+
+
+5.5.pic in video
+gst-launch-1.0 -e videomixer name=mix sink_1::xpos=200 sink_1::ypos=200 ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=picinvideo.mp4 \
+videotestsrc pattern=3 ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720' ! mix. \
+filesrc location="INVO.jpg" ! ducatijpegdec ! imagefreeze ! 'video/x-raw, width=(int)287, height=(int)72'  ! mix.sink_1
+ 
+6.time+text+pic+videowall
+
+gst-launch-1.0 -e videomixer name=mix sink_5::xpos=200 sink_5::ypos=200 ! timeoverlay halignment=right valignment=bottom ! clockoverlay halignment=left valignment=bottom time-format="%Y/%m/%d %H:%M:%S" ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=ttpvwall.mp4 \
+videotestsrc pattern=10 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM4" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=-360 left=-640 ! mix. \
+videotestsrc pattern=19 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM3" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=-360 left=0 ! mix. \
+videotestsrc pattern=15 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM2" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=0 left=-640 ! mix. \
+videotestsrc pattern=1  ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM1" font-desc="Sans Bold 8"  shaded-background=true ! videobox border-alpha=0 top=0 left=0 ! mix. \
+videotestsrc pattern=0 ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720' ! mix. \
+filesrc location="INVO.jpg" ! ducatijpegdec ! imagefreeze ! 'video/x-raw, width=(int)287, height=(int)72' ! mix.sink_5
+
+7.time+text+pic+videowall+720p
+
+gst-launch-1.0 -e videomixer name=mix sink_5::xpos=500 sink_5::ypos=400  ! clockoverlay halignment=right valignment=top font-desc="Sans Bold 12" time-format="%Y/%m/%d %H:%M:%S" ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=VIDDEO`date +%Y%m%d%H%M`.mp4 \
+videotestsrc pattern=0 ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720' ! mix. \
+videotestsrc pattern=1  ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM4" font-desc="Sans Bold 16"  shaded-background=true ! videobox border-alpha=0 top=-360 left=-640 ! mix. \
+videotestsrc pattern=15 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM3" font-desc="Sans Bold 16"  shaded-background=false ! videobox border-alpha=0 top=-360 left=0 ! mix. \
+videotestsrc pattern=19 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM2" font-desc="Sans Bold 16"  shaded-background=true ! videobox border-alpha=0 top=0 left=-640 ! mix. \
+videotestsrc pattern=10 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM1" font-desc="Sans Bold 16"  shaded-background=true ! videobox border-alpha=0 top=0 left=0 ! mix. 
+
+
+filesrc location="INVO.jpg" ! ducatijpegdec ! imagefreeze ! 'video/x-raw, format=(string)NV12, width=(int)287, height=(int)72' ! mix.sink_5
+8.rtp
+send:
+gst-launch-1.0 -e  videotestsrc ! 'video/x-raw, format=(string)NV12, height=(int)1080, width=(int)1920 ! vpe ! ducatih264enc ! h264parse ! rtph264pay pt=96  ! udpsink host=192.168.1.101 port=5000
+recv:
+1).gst-launch-1.0 udpsrc port=5000 ! application/x-rtp, payload=96  ! rtpjitterbuffer ! rtph264depay ! h264parse ! avdec_h264 ! xvimagesink
+2).vlc -vvv *.sdp
+*.sdp:
+v=0                                                   #版本信息
+m=video 5000 RTP/AVP 96         
+#<媒体类型><传输端口><传输类型><格式>
+c=IN IP4 192.168.1.101
+#<网络类型><地址类型><ip地址>
+a=rtpmap:96 H264/90000
+#<负载类型><编码名>/<时钟速率>
+
+
+9.capture
+dmabuftest -s 16:1280x720 -d /dev/video1 -c 720x488@YUYV
+dmabuftest -s 16:1280x720 -d /dev/video1 -c 720x488@UYVY
+
+
+dmabuftest --multi 4 -d /dev/video1 -c 720x240@YUYV -d /dev/video2 -c 720x240@YUYV -d /dev/video3 -c 720x240@YUYV -d /dev/video4 -c 720x240@YUYV --kmscube --connector 16 --fov 20
+
+gst-launch-1.0 -e v4l2src device=/dev/video1 ! 'video/x-raw, format=(string)UYVY' ! videoconvert ! 'video/x-raw, format=(string)NV12' !  ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=BBB.mp4
+
+10.capture+rtp
+send:
+gst-launch-1.0 -e v4l2src device=/dev/video1 ! 'video/x-raw, format=(string)UYVY' ! videoconvert ! 'video/x-raw, format=(string)NV12' !  ducatih264enc bitrate=4000 ! queue ! h264parse ! rtph264pay pt=96  ! udpsink host=192.168.1.101 port=5000
+
+recv:
+1).show only
+gst-launch-1.0 udpsrc port=5000 ! application/x-rtp, payload=96  ! rtpjitterbuffer ! rtph264depay ! h264parse ! avdec_h264 ! xvimagesink
+2).show+file
+gst-launch-1.0 -e udpsrc port=5000 ! application/x-rtp, payload=96  ! rtpjitterbuffer ! rtph264depay ! h264parse ! tee name=t t. ! queue ! avdec_h264 ! xvimagesink t. ! queue ! qtmux ! filesink location=videotest.mp4
+
+
+
+
+
+
