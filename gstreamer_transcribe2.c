@@ -74,7 +74,7 @@ void *handler_end(void *arg)
 	
 	sleep(5);
 	
-	gst_element_send_event(data->pipeline, gst_event_new_eos());
+	gst_element_send_event(data->pipeline, gst_event_new_eos());																																																																																																																																																										
 	pthread_exit(0);
 }
 
