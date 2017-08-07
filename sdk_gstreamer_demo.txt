@@ -48,7 +48,7 @@ the supported Audio/video sink is kmssink, waylandsink and alsassink.
 
 https://gstreamer.freedesktop.org/media/gst-integration-testsuite/defaults/webm/vorbis_vp8.0.webm
 
-
+uname, sed, mkimage, dos2unix, dtrx, mono-complete, git, lib32z1 lib32ncurses5 lib32bz2-1.0 libc6:i386 libc6-i386 libstdc++6:i386 libncurses5:i386 libz1:i386 libc6-dev-i386 device-tree-compiler mono-complete 
 test
 gst-launch-1.0 -e v4l2src device=/dev/video0 num-buffers=1000 io-mode=4 ! 'video/x-raw, format=(string)YUY2, width=(int)1280, height=(int)720, framerate=(fraction)30/1' ! vpe num-input-buffers=8 ! tee name=t  ! queue ! ducatimpeg4enc bitrate=4000 ! queue ! mpeg4videoparse ! qtmux ! filesink location=x.mp4 t. ! queue ! ximagesink
 
@@ -73,6 +73,7 @@ j6  test
 
 gst-launch-1.0 -e videotestsrc ! videoconvert ! ducatih264enc ! h264parse ! avimux ! filesink location=test02.avi  
 
+gst-launch-1.0 -e videotestsrc ! videoconvert ! avimux ! filesink location=test02.avi  
 
 
 
@@ -379,7 +380,7 @@ filesrc location="INVO.jpg" ! ducatijpegdec ! imagefreeze ! 'video/x-raw, width=
 
 7.time+text+pic+videowall+720p
 
-gst-launch-1.0 -e videomixer name=mix sink_5::xpos=500 sink_5::ypos=400  ! clockoverlay halignment=right valignment=top font-desc="Sans Bold 12" time-format="%Y/%m/%d %H:%M:%S" ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=VIDDEO`date +%Y%m%d%H%M`.mp4 \
+gst-launch-1.0 -e videomixer name=mix sink_5::xpos=500 sink_5::ypos=400  ! clockoverlay halignment=right valignment=top font-desc="Sans Bold 12" time-format="%Y/%m/%d %H:%M:%S" ! ducatih264enc bitrate=4000 ! queue ! h264parse ! qtmux ! filesink location=VIDEO`date +%Y%m%d%H%M`.mp4 \
 videotestsrc pattern=0 ! 'video/x-raw, format=(string)NV12, width=(int)1280, height=(int)720' ! mix. \
 videotestsrc pattern=1  ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM4" font-desc="Sans Bold 16"  shaded-background=true ! videobox border-alpha=0 top=-360 left=-640 ! mix. \
 videotestsrc pattern=15 ! 'video/x-raw, format=(string)UYVY, width=(int)640, height=(int)360' ! textoverlay halignment=left valignment=top text="CAM3" font-desc="Sans Bold 16"  shaded-background=false ! videobox border-alpha=0 top=-360 left=0 ! mix. \
@@ -424,7 +425,83 @@ gst-launch-1.0 udpsrc port=5000 ! application/x-rtp, payload=96  ! rtpjitterbuff
 gst-launch-1.0 -e udpsrc port=5000 ! application/x-rtp, payload=96  ! rtpjitterbuffer ! rtph264depay ! h264parse ! tee name=t t. ! queue ! avdec_h264 ! xvimagesink t. ! queue ! qtmux ! filesink location=videotest.mp4
 
 
+11.overlay cpu loading test
 
+(1) 
+gst-launch-1.0 -e  videotestsrc ! 'video/x-raw, height=(int)720, width=(int)1280' ! kmssink
+
+
+cpu loading 27-28%
+(2)picture in video
+
+gst-launch-1.0 -e videomixer name=mix ! videoconvert ! kmssink \
+videotestsrc  ! 'video/x-raw, width=(int)1280, height=(int)720' ! mix. \
+filesrc location="test.png" ! pngdec ! imagefreeze ! 'video/x-raw, width=(int)1280, height=(int)28'  ! mix. \
+filesrc location="INVO.png" ! pngdec ! imagefreeze ! 'video/x-raw, width=(int)287, height=(int)72'  ! mix.
+
+
+70
+(3)clockoverlay
+
+gst-launch-1.0 -e  videotestsrc ! 'video/x-raw, height=(int)720, width=(int)1280' ! clockoverlay halignment=right valignment=top font-desc="Sans Bold 12" time-format="%Y/%m/%d %H:%M:%S" ! videoconvert ! kmssink
+
+42-43
+
+(4)
+gst-launch-1.0 -e videomixer name=mix ! clockoverlay halignment=right valignment=top xpad=100 ypad=0 font-desc="Sans Bold 10" time-format="%Y/%m/%d %H:%M:%S" ! videoconvert ! kmssink \
+videotestsrc ! 'video/x-raw, width=(int)1280, height=(int)720' ! mix. \
+filesrc location="test.png" ! pngdec ! imagefreeze ! 'video/x-raw, width=(int)1280, height=(int)28'  ! mix.
+97
+
+#######################################
+
+gst-launch-1.0 -e videomixer name=mix ! clockoverlay halignment=right valignment=top xpad=100 ypad=0 font-desc="Sans Bold 10" time-format="%Y/%m/%d %H:%M:%S" ! tee name=t ! queue ! videoconvert ! kmssink \
+videotestsrc ! 'video/x-raw, width=(int)1280, height=(int)720' ! mix. \
+videotestsrc pattern=2 ! 'video/x-raw, format=(string)UYVY, width=(int)1280, height=(int)28' ! videobox border-alpha=0 top=0 left=0 ! mix. 
+
+
+
+
+gst-launch-1.0 -e  videotestsrc ! 'video/x-raw, format=(string)NV12, height=(int)720, width=(int)1280' ! clockoverlay halignment=right valignment=top font-desc="Sans Bold 12" time-format="%Y/%m/%d %H:%M:%S" !  ducatih264enc bitrate=4000 ! filesink location=test1.264 
+
+
+multifiles
+
+gst-launch-1.0 -e videomixer name=mix ! clockoverlay halignment=right valignment=top xpad=100 ypad=0 font-desc="Sans Bold 10" time-format="%Y/%m/%d %H:%M:%S" ! tee name=t \
+t. ! queue ! vpe ! ducatih264enc ! filesink location=test3.264 \
+t. ! queue ! vpe ! ducatih264enc ! filesink location=test2.264 \
+videotestsrc ! 'video/x-raw, width=(int)1280, height=(int)720' ! mix. \
+videotestsrc pattern=2 ! 'video/x-raw, format=(string)UYVY, width=(int)1280, height=(int)28' ! videobox border-alpha=0 top=0 left=0 ! mix. 
+
+
+200M
+gst-launch-1.0 -e  videotestsrc ! 'video/x-raw, format=(string)NV12, height=(int)720, width=(int)1280' ! clockoverlay halignment=right valignment=top font-desc="Sans Bold 12" time-format="%Y/%m/%d %H:%M:%S" ! timeoverlay halignment=left valignment=top font-desc="Sans Bold 12" !  ducatih264enc bitrate=4000 ! multifilesink location=test%04d.264 next-file=4 max-file-size=209715200
+
+
+3min:(Generate more onef files)
+gst-launch-1.0 -e  videotestsrc ! 'video/x-raw, format=(string)NV12, height=(int)720, width=(int)1280' ! clockoverlay halignment=right valignment=top font-desc="Sans Bold 12" time-format="%Y/%m/%d %H:%M:%S" ! timeoverlay halignment=right valignment=bottom font-desc="Sans Bold 12" !  ducatih264enc bitrate=4000 ! multifilesink location=VIDEO%04d.264 next-file=5  max-file-duration=180000000000
+
+
+gst-launch-1.0 -e  videotestsrc pattern=18 ! 'video/x-raw, format=(string)NV12, height=(int)720, width=(int)1280' ! \
+clockoverlay halignment=right valignment=top font-desc="Sans Bold 12" time-format="%Y/%m/%d %H:%M:%S" ! \
+timeoverlay halignment=right valignment=bottom font-desc="Sans Bold 12" !  \
+ducatih264enc bitrate=4000 slice-mode=1 rate-preset=low-delay rate-control-params-preset=2  intra-interval=2 inter-interval=1 ! \
+multifilesink location=VIDEO%04d.264 next-file=5  max-file-duration=180000000000
+
+gst-launch-1.0 -e  videotestsrc pattern=18 ! 'video/x-raw, format=(string)NV12, height=(int)720, width=(int)1280' ! \
+clockoverlay halignment=right valignment=top font-desc="Sans Bold 12" time-format="%Y/%m/%d %H:%M:%S" ! \
+timeoverlay halignment=right valignment=bottom font-desc="Sans Bold 12" !  \
+ducatih264enc bitrate=4000 slice-mode=1 rate-preset=low-delay rate-control-params-preset=2  intra-interval=2 inter-interval=1 ! \
+multifilesink location=VIDEO%04d.264 next-file=5  max-file-duration=180034000000
+
+only i frame
+gst-launch-1.0 -e  videotestsrc pattern=18 ! 'video/x-raw, format=(string)NV12, height=(int)720, width=(int)1280' ! \
+clockoverlay halignment=right valignment=top font-desc="Sans Bold 12" time-format="%Y/%m/%d %H:%M:%S" ! \
+timeoverlay halignment=right valignment=bottom font-desc="Sans Bold 12" !  \
+ducatih264enc bitrate=4000 slice-mode=1 rate-preset=low-delay rate-control-params-preset=2  intra-interval=1 inter-interval=1 ! \
+multifilesink location=VIDEO%04d.264 next-file=5  max-file-duration=180000000000
+
+gst-launch-1.0 filesrc location=VIDEO0000.264 ! h264parse ! h264parse ! qtmux movie-timescale=180 ! filesink location=VIDEO0000.mp4
 
 
 
